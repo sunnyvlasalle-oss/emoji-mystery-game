@@ -1,0 +1,250 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Play Emoji Mystery, a fun and addictive emoji guessing game. Solve puzzles before time runs out!">
+<title>Emoji Mystery - Can You Guess It?</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;min-height:100vh;font-family:Arial,sans-serif;
+ background:linear-gradient(135deg,#17133d,#38236e,#15152f);
+ color:white;display:flex;align-items:center;justify-content:center;
+ padding:20px
+}
+.game{width:100%;max-width:520px;text-align:center}
+h1{font-size:clamp(2rem,8vw,3rem);margin:0 0 8px}
+.subtitle{color:#c9c4e8;margin-bottom:25px}
+.panel{
+ background:#ffffff12;border:1px solid #ffffff25;
+ border-radius:22px;padding:25px;box-shadow:0 15px 45px #0005
+}
+.stats{display:flex;justify-content:space-around;gap:10px;margin-bottom:22px}
+.stat{background:#ffffff12;border-radius:12px;padding:12px;flex:1}
+.stat small{display:block;color:#c9c4e8;margin-bottom:5px}
+.stat strong{font-size:1.4rem}
+.level{color:#ffdb70;font-weight:bold;margin:10px}
+.puzzle{
+ font-size:clamp(3.2rem,15vw,5.5rem);letter-spacing:5px;
+ padding:25px 5px;margin:10px 0;background:#ffffff0d;border-radius:18px
+}
+.hint{color:#c9c4e8;min-height:24px;margin:10px}
+input{
+ width:100%;padding:16px;border-radius:12px;border:2px solid transparent;
+ font-size:1.1rem;text-align:center;outline:none;margin:12px 0
+}
+input:focus{border-color:#a78bfa}
+button{
+ border:0;border-radius:12px;padding:14px 20px;
+ font-size:1rem;font-weight:bold;cursor:pointer;transition:.15s
+}
+button:active{transform:scale(.97)}
+.primary{background:#a78bfa;color:#17133d;width:100%}
+.secondary{background:#ffffff20;color:white}
+.buttons{display:flex;gap:10px;margin-top:10px}
+.buttons button{flex:1}
+.message{min-height:28px;margin-top:15px;font-weight:bold}
+.good{color:#70f0a0}
+.bad{color:#ff9292}
+.progress{height:8px;background:#ffffff20;border-radius:10px;overflow:hidden;margin-top:20px}
+.bar{height:100%;background:#a78bfa;width:100%;transition:width .3s}
+.hidden{display:none!important}
+.footer{font-size:.8rem;color:#aaa4c9;margin-top:20px}
+</style>
+</head>
+<body>
+<main class="game">
+ <h1>🧩 Emoji Mystery</h1>
+ <p class="subtitle">Decode the emojis. Guess the answer!</p>
+
+ <section class="panel">
+  <div class="stats">
+   <div class="stat"><small>⭐ Score</small><strong id="score">0</strong></div>
+   <div class="stat"><small>⏱️ Time</small><strong id="time">20</strong></div>
+   <div class="stat"><small>🏆 Best</small><strong id="best">0</strong></div>
+  </div>
+
+  <div class="level" id="level">LEVEL 1</div>
+  <div class="puzzle" id="puzzle">🍕 ❤️</div>
+  <p class="hint" id="hint">Hint: A popular Italian food</p>
+
+  <div id="playArea">
+   <input id="answer" type="text" placeholder="Type your answer..." autocomplete="off">
+   <button class="primary" id="submit">SUBMIT ANSWER</button>
+   <div class="message" id="message" aria-live="polite"></div>
+   <div class="buttons">
+    <button class="secondary" id="skip">Skip ⏭</button>
+    <button class="secondary" id="hintBtn">Hint 💡</button>
+   </div>
+  </div>
+
+  <div id="endArea" class="hidden">
+   <h2 id="endTitle">Game Over!</h2>
+   <p id="endText"></p>
+   <button class="primary" id="restart">PLAY AGAIN 🔄</button>
+   <button class="secondary" id="share" style="width:100%;margin-top:10px">SHARE SCORE 📲</button>
+  </div>
+
+  <div class="progress"><div class="bar" id="bar"></div></div>
+ </section>
+ <p class="footer">Challenge your friends. How many can you solve?</p>
+</main>
+
+<script>
+const puzzles = [
+ {emoji:"🍕 ❤️",answer:"pizza",hint:"A popular Italian food"},
+ {emoji:"🦁 👑",answer:"lion king",hint:"A famous animated movie"},
+ {emoji:"🌧️ 🐱 🐶",answer:"raining cats and dogs",hint:"A phrase about heavy rain"},
+ {emoji:"⭐ 🐟",answer:"starfish",hint:"A sea creature"},
+ {emoji:"🧊 ☕",answer:"iced coffee",hint:"A cold drink"},
+ {emoji:"🌙 🚶",answer:"moonwalk",hint:"A famous dance move"},
+ {emoji:"🍔 👑",answer:"burger king",hint:"A fast food restaurant"},
+ {emoji:"🐝 🍯",answer:"honeybee",hint:"An insect that makes honey"},
+ {emoji:"🔥 🏠",answer:"firehouse",hint:"A place where firefighters work"},
+ {emoji:"🎃 👻",answer:"halloween",hint:"A spooky holiday"},
+ {emoji:"🌞 🌻",answer:"sunflower",hint:"A yellow flower"},
+ {emoji:"🕷️ 👨",answer:"spiderman",hint:"A superhero"},
+ {emoji:"🧠 🌪️",answer:"brainstorm",hint:"A way to generate ideas"},
+ {emoji:"🐠 🌊",answer:"fish",hint:"An animal that swims"},
+ {emoji:"📱 💔",answer:"broken phone",hint:"A device that needs repair"},
+ {emoji:"🍎 🥧",answer:"apple pie",hint:"A classic dessert"},
+ {emoji:"🚗 💨",answer:"fast car",hint:"A vehicle moving quickly"},
+ {emoji:"❄️ 👨",answer:"snowman",hint:"A winter character"},
+ {emoji:"🎂 🎉",answer:"birthday",hint:"A special celebration"},
+ {emoji:"🌈 🌉",answer:"rainbow bridge",hint:"A colourful crossing"}
+];
+
+let score=0,time=20,index=0,timer=null,active=false;
+let usedHints=0;
+let current=null;
+let best=Number(localStorage.getItem("emojiMysteryBest")||0);
+
+const $=id=>document.getElementById(id);
+$("best").textContent=best;
+
+function shuffle(array){
+ return [...array].sort(()=>Math.random()-.5);
+}
+
+let queue=[];
+
+function startGame(){
+ clearInterval(timer);
+ score=0;time=20;index=0;active=true;
+ queue=shuffle(puzzles);
+ $("score").textContent=score;
+ $("time").textContent=time;
+ $("playArea").classList.remove("hidden");
+ $("endArea").classList.add("hidden");
+ $("answer").disabled=false;
+ $("submit").disabled=false;
+ loadPuzzle();
+ timer=setInterval(()=>{
+  time--;
+  $("time").textContent=time;
+  $("bar").style.width=(time/20*100)+"%";
+  if(time<=0)endGame(false);
+ },1000);
+}
+
+function loadPuzzle(){
+ if(index>=queue.length){
+  queue=shuffle(puzzles);
+  index=0;
+ }
+ current=queue[index];
+ $("puzzle").textContent=current.emoji;
+ $("hint").textContent="Hint: "+current.hint;
+ $("level").textContent="LEVEL "+(score+1);
+ $("answer").value="";
+ $("message").textContent="";
+ $("message").className="message";
+ $("answer").focus();
+ usedHints=0;
+}
+
+function normalize(value){
+ return value.toLowerCase().trim().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ");
+}
+
+function submitAnswer(){
+ if(!active)return;
+ const guess=normalize($("answer").value);
+ if(!guess)return;
+
+ if(guess===normalize(current.answer)){
+  score+=10;
+  $("score").textContent=score;
+  $("message").textContent="🎉 Correct! +10 points!";
+  $("message").className="message good";
+  setTimeout(()=>{
+   if(!active)return;
+   index++;
+   loadPuzzle();
+  },650);
+ }else{
+  $("message").textContent="❌ Not quite! Try again.";
+  $("message").className="message bad";
+  $("answer").select();
+ }
+}
+
+function skipPuzzle(){
+ if(!active)return;
+ $("message").textContent="Answer: "+current.answer;
+ $("message").className="message";
+ setTimeout(()=>{
+  if(!active)return;
+  index++;
+  loadPuzzle();
+ },900);
+}
+
+function showHint(){
+ if(!active)return;
+ $("hint").textContent="💡 Hint: "+current.hint+" — starts with "+current.answer[0].toUpperCase();
+}
+
+function endGame(won){
+ if(!active)return;
+ active=false;
+ clearInterval(timer);
+ $("playArea").classList.add("hidden");
+ $("endArea").classList.remove("hidden");
+ $("endTitle").textContent=won?"You solved them all!":"⏰ Time's up!";
+ $("endText").textContent="You scored "+score+" points!";
+ if(score>best){
+  best=score;
+  localStorage.setItem("emojiMysteryBest",best);
+  $("best").textContent=best;
+  $("endText").textContent+=" New personal best! 🏆";
+ }
+}
+
+$("submit").addEventListener("click",submitAnswer);
+$("answer").addEventListener("keydown",e=>{
+ if(e.key==="Enter")submitAnswer();
+});
+$("skip").addEventListener("click",skipPuzzle);
+$("hintBtn").addEventListener("click",showHint);
+$("restart").addEventListener("click",startGame);
+$("share").addEventListener("click",async()=>{
+ const message="I scored "+score+" points in Emoji Mystery! 🧩 Can you beat me?";
+ if(navigator.share){
+  try{await navigator.share({title:"Emoji Mystery",text:message});}catch(e){}
+ }else{
+  try{
+   await navigator.clipboard.writeText(message);
+   $("endText").textContent+=" Score copied! Share it with your friends.";
+  }catch(e){
+   $("endText").textContent=message;
+  }
+ }
+});
+
+startGame();
+</script>
+</body>
+</html>
